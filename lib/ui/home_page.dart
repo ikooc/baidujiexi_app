@@ -192,7 +192,7 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('网盘直链助手'),
+        title: const Text('百度解析助手'),
         actions: <Widget>[
           IconButton(
             tooltip: isDark ? '切换浅色' : '切换深色',

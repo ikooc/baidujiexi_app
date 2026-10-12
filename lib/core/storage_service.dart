@@ -19,7 +19,7 @@ class StorageService {
   static final StorageService instance = StorageService._();
 
   static const MethodChannel _channel =
-      MethodChannel('com.baidujiexi.baidujiexi_app/storage');
+      MethodChannel('com.liuguang.bdjx/storage');
   static const String _customDirKey = 'download_dir_custom';
 
   String? _customDir;
@@ -144,7 +144,7 @@ class StorageService {
     try {
       final dir = Directory(path);
       if (!await dir.exists()) await dir.create(recursive: true);
-      final probe = File(p.join(path, '.baidujiexi_write_probe'));
+      final probe = File(p.join(path, '.bdjx_write_probe'));
       await probe.writeAsString('ok');
       await probe.delete();
       return true;

@@ -1,4 +1,4 @@
-package com.baidujiexi.baidujiexi_app
+package com.liuguang.bdjx
 
 import android.content.Context
 import com.gopeed.mobile.Mobile
@@ -9,14 +9,14 @@ import org.json.JSONObject
 /**
  * Gopeed 下载引擎桥接层。
  *
- * Dart 侧通过 MethodChannel "com.baidujiexi.baidujiexi_app/gopeed" 与 Go 引擎通信：
+ * Dart 侧通过 MethodChannel "com.liuguang.bdjx/gopeed" 与 Go 引擎通信：
  *  - start(String configJson) -> long 端口：启动内嵌 REST 服务
  *  - stop() -> void
  *
  * 启动后 Dart 侧直接走 http://127.0.0.1:<port>/api/v1/... 的 REST API。
  */
 object GopeedBridge {
-    private const val CHANNEL = "com.baidujiexi.baidujiexi_app/gopeed"
+    private const val CHANNEL = "com.liuguang.bdjx/gopeed"
 
     fun register(engine: FlutterEngine, context: Context) {
         MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->

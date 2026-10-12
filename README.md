@@ -1,6 +1,6 @@
-# baidujiexi_app
+# 百度解析助手
 
-百度网盘直链解析助手的 Flutter 客户端（Android / Windows）。
+百度网盘直链解析助手的 Flutter 客户端（Android / Windows / iOS）。
 
 App 不硬编码任何上游接口域名，启动时从远端配置接口拉取真实 API 地址，把用户粘贴的网盘分享链接解析为可直接下载的直链，再交给内置的 [Gopeed](https://gopeed.com/) 下载引擎进行多线程下载。
 
@@ -44,7 +44,7 @@ baidujiexi_app/
 │       ├── home_page.dart         首页（粘贴链接、解析进度、结果卡片、公告）
 │       └── downloads_page.dart    下载任务列表
 ├── android/                       Android 工程
-│   └── app/src/main/kotlin/com/baidujiexi/baidujiexi_app/
+│   └── app/src/main/kotlin/com/liuguang/bdjx/
 │       ├── MainActivity.kt        入口 Activity（转发权限回调）
 │       ├── GopeedBridge.kt        Gopeed 引擎 MethodChannel 桥
 │       └── StorageBridge.kt       存储目录 / 权限 MethodChannel 桥
@@ -142,7 +142,7 @@ SSE 事件逐步返回（`step` 字段）：`queue` / `ready` / `link_check` / `
 
 单例桥接层，启动幂等并带存活自愈：已启动时先探测引擎是否仍可达，不可达则复位后完整重启，避免请求命中死端口。
 
-- **Android / iOS**：`MethodChannel('com.baidujiexi.baidujiexi_app/gopeed')`，原生实现见 [GopeedBridge.kt](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/android/app/src/main/kotlin/com/baidujiexi/baidujiexi_app/GopeedBridge.kt)，入口类 `com.gopeed.mobile.Mobile`（依赖 `libgopeed.aar`）。
+- **Android / iOS**：`MethodChannel('com.liuguang.bdjx/gopeed')`，原生实现见 [GopeedBridge.kt](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/android/app/src/main/kotlin/com/liuguang/bdjx/GopeedBridge.kt)，入口类 `com.gopeed.mobile.Mobile`（依赖 `libgopeed.aar`）。
 - **Windows**：以子进程方式拉起 `gopeed-rest.exe`，从 stdout 解析 `GOPEED_PORT=<port>`（超时 20s），错误行以 `GOPEED_ERROR=` 前缀输出。
 
 启动后统一通过 `http://127.0.0.1:<port>/api/v1` 访问 Gopeed REST API：
@@ -168,7 +168,7 @@ SSE 事件逐步返回（`step` 字段）：`queue` / `ready` / `link_check` / `
 2. 系统公共下载目录 `/storage/emulated/0/Download/`
 3. 应用专属外部目录兜底（无需权限，恒可写）
 
-原生桥 `MethodChannel('com.baidujiexi.baidujiexi_app/storage')` 提供 `getDefaultDir` / `getFallbackDir` / `hasPermission` / `requestPermission` / `ensureDir`（写探针校验可写性），实现见 [StorageBridge.kt](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/android/app/src/main/kotlin/com/baidujiexi/baidujiexi_app/StorageBridge.kt)；运行时权限回调由 `MainActivity.onRequestPermissionsResult` 转发。
+原生桥 `MethodChannel('com.liuguang.bdjx/storage')` 提供 `getDefaultDir` / `getFallbackDir` / `hasPermission` / `requestPermission` / `ensureDir`（写探针校验可写性），实现见 [StorageBridge.kt](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/android/app/src/main/kotlin/com/liuguang/bdjx/StorageBridge.kt)；运行时权限回调由 `MainActivity.onRequestPermissionsResult` 转发。
 
 Android 版本与权限矩阵：
 
@@ -200,7 +200,7 @@ Manifest 中相应权限均带 `maxSdkVersion` 声明（见 [AndroidManifest.xml
   "fallbackBases": [],
   "defaultMode": "web",
   "configVersion": 1,
-  "announcement": "欢迎使用网盘直链助手！"
+  "announcement": "欢迎使用百度解析助手！"
 }
 ```
 

@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 
 /// Gopeed 下载引擎 Dart 桥接层。
 ///
-/// 通过 MethodChannel「com.baidujiexi.baidujiexi_app/gopeed」启动内嵌 Go 服务，
+/// 通过 MethodChannel「com.liuguang.bdjx/gopeed」启动内嵌 Go 服务，
 /// 之后全部走 `http://127.0.0.1:[port]/api/v1` 的 REST API。
 ///
 /// 任务状态机（Gopeed）：ready / running / wait / pause / error / done
@@ -17,8 +17,8 @@ class GopeedEngine {
   GopeedEngine._();
   static final GopeedEngine instance = GopeedEngine._();
 
-  static const _channel = MethodChannel('com.baidujiexi.baidujiexi_app/gopeed');
-  static const _appId = 'com.baidujiexi.baidujiexi_app';
+  static const _channel = MethodChannel('com.liuguang.bdjx/gopeed');
+  static const _appId = 'com.liuguang.bdjx';
 
   int? _port;
   bool _started = false;

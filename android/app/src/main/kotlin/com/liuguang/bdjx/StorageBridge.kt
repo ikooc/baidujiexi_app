@@ -1,4 +1,4 @@
-package com.baidujiexi.baidujiexi_app
+package com.liuguang.bdjx
 
 import android.Manifest
 import android.app.Activity
@@ -22,7 +22,7 @@ import io.flutter.plugin.common.MethodChannel
  *             （「所有文件访问」），只能跳系统设置页由用户手动开启。
  */
 object StorageBridge {
-    private const val CHANNEL = "com.baidujiexi.baidujiexi_app/storage"
+    private const val CHANNEL = "com.liuguang.bdjx/storage"
     private const val REQUEST_CODE = 0x5744
 
     private var activity: Activity? = null
@@ -128,7 +128,7 @@ object StorageBridge {
             if (!dir.exists()) {
                 if (!dir.mkdirs()) return false
             }
-            val probe = java.io.File(dir, ".baidujiexi_write_probe")
+            val probe = java.io.File(dir, ".bdjx_write_probe")
             probe.writeText("ok")
             probe.delete()
             true

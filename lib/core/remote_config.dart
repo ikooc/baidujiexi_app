@@ -27,8 +27,8 @@ const String _bootstrapOverride =
     String.fromEnvironment('BOOTSTRAP_URL', defaultValue: '');
 
 const List<String> kDefaultBootstrapUrls = <String>[
-  'https://hhh.com/api/app/config.php',
-  'http://hhh.com/api/app/config.php',
+  'https://ai.yodlx.com/api/app/config.php',
+  'http://ai.yodlx.com/api/app/config.php',
 ];
 
 /// The bootstrap URLs actually used, honouring [BOOTSTRAP_URL] if provided.

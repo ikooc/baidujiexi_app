@@ -36,7 +36,7 @@ class _BaidujiexiAppState extends State<BaidujiexiApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '网盘直链助手',
+      title: '百度解析助手',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
