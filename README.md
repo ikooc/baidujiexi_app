@@ -1,6 +1,6 @@
 # baidujiexi_app
 
-网盘直链解析助手的 Flutter 客户端（Android / Windows）。
+百度网盘直链解析助手的 Flutter 客户端（Android / Windows）。
 
 App 不硬编码任何上游接口域名，启动时从远端配置接口拉取真实 API 地址，把用户粘贴的网盘分享链接解析为可直接下载的直链，再交给内置的 [Gopeed](https://gopeed.com/) 下载引擎进行多线程下载。
 
