@@ -9,6 +9,8 @@ App 不硬编码任何上游接口域名，启动时从远端配置接口拉取�
 
 > **反馈与交流**：使用中遇到问题、有功能建议，或想第一时间获取新版本，欢迎加入 QQ 群 **1125479685**。
 
+> **下载安装**：Android 用户可直接从 [Releases](https://github.com/ikooc/baidujiexi_app/releases) 下载已打包好的 APK（arm64-v8a，带启动弹窗公告）安装使用，无需自行编译。自行构建方法见「使用前端」，后端部署见「使用后端」。
+
 ---
 
 ## 功能概览
@@ -50,33 +52,64 @@ baidujiexi_app/
 │       └── StorageBridge.kt       存储目录 / 权限 MethodChannel 桥
 ├── windows/                       Windows 工程（内嵌 gopeed-rest.exe）
 ├── ios/                           iOS 工程骨架
+├── api/app/                       后端配置接口（config.php + config.json）
 └── test/core_test.dart            核心逻辑单元测试
 ```
 
+> `lib/private/` 与 `lib/main_private.dart` 为**本地定制入口**，被 `.gitignore` 排除，不出现在开源仓库中（详见「使用前端」）。
+
 ---
 
-## 快速开始
+## 使用前端
+
+### 1. 环境与运行
 
 环境要求：Flutter 3.x（Dart SDK `^3.12.2`）。
 
 ```bash
 flutter pub get
 
-# 运行（连接设备 / 桌面）
+# 运行（连接设备 / 桌面；默认跑开源入口 lib/main.dart）
 flutter run
+
+# 运行定制版（带弹窗，需本地存在 lib/main_private.dart）
+flutter run --target lib/main_private.dart
 
 # 校验
 flutter analyze   # 需 0 issue
 flutter test      # 单元测试全绿
 ```
 
----
+> App 启动时若拿不到后端配置，会退回本地缓存；首次启动需能访问 bootstrap 地址，否则停留在加载页。
 
-## 构建
+### 2. 两个入口：开源版 vs 定制版
+
+本项目有 **两个入口**，用 `--target` 指定要跑 / 打包哪一个：
+
+| 入口 | 文件 | 说明 |
+| --- | --- | --- |
+| 开源入口（默认） | `lib/main.dart` | 干净的开源版本，不含任何本地定制模块。不带 `--target` 时 Flutter 默认用它 |
+| 定制入口（本地保留） | `lib/main_private.dart` | 先注册本地私有模块（如启动弹窗公告），再调用开源入口。**该文件与 `lib/private/` 被 `.gitignore` 排除，不进开源仓库** |
+
+```dart
+// lib/main_private.dart（本地文件，不提交）
+import 'main.dart';
+import 'private/announcement_popup.dart';
+
+void main() {
+  registerPrivateModules(); // 通过 StartupHooks 注册启动弹窗
+  runBaidujiexiApp();       // 复用开源入口的完整逻辑
+}
+```
+
+构建命令：
 
 ```bash
-# Android（推荐只打包 arm64，见「Android 打包约定」）
+# 开源版（不带弹窗）
 flutter build apk --release --target-platform android-arm64
+
+# 定制版（带弹窗，需本地存在 lib/main_private.dart）
+flutter build apk --release --target-platform android-arm64 --target lib/main_private.dart
 
 # Windows
 flutter build windows --release
@@ -87,7 +120,9 @@ flutter build windows --release
 - Android：`build/app/outputs/flutter-apk/app-release.apk`
 - Windows：`build/windows/x64/runner/Release/`
 
-### 指定 bootstrap 地址
+> 校验 APK 是否含弹窗：解压 APK 取 `lib/arm64-v8a/libapp.so`，搜索 `公告` / `无法打开`（UTF-16）或 `dismissible` / `actionLabel`（ASCII）等私有模块特征串，命中即为定制版。
+
+### 3. 指定 bootstrap 地址
 
 默认 bootstrap 地址定义在 [remote_config.dart](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/lib/core/remote_config.dart) 的 `kDefaultBootstrapUrls`。可在构建时覆盖：
 
@@ -95,6 +130,8 @@ flutter build windows --release
 flutter build apk --release \
   --dart-define=BOOTSTRAP_URL=https://your.domain/api/app/config.php
 ```
+
+> 完整字段与后端部署方式见下文「使用后端」。
 
 ---
 
@@ -186,26 +223,156 @@ Manifest 中相应权限均带 `maxSdkVersion` 声明（见 [AndroidManifest.xml
 
 `StartupHooks.register(...)` 允许在 `runApp` 之前注册一个在启动后执行一次的回调（例如需要弹窗、上报等副作用）。钩子在远端配置解析完成、首页首帧绘制之后触发，因此持有挂载在 `MaterialApp` 下的 `BuildContext`，可安全弹出对话框；单个钩子抛错会被隔离记录，不影响 App 启动。
 
----
+```dart
+// lib/private/announcement_popup.dart（本地文件，不提交）
+void registerPrivateModules() {
+  StartupHooks.register(showAnnouncementPopup);
+}
 
-## 后端配置接口
-
-配置由站点后端下发，示例见仓库同级的 `api/app/config.json` 与 `api/app/config.php`：
-
-```json
-{
-  "apiBase": "https://file.mdx.wang",
-  "siteOrigin": "https://file.mdx.wang",
-  "referer": "https://file.mdx.wang/",
-  "fallbackBases": [],
-  "defaultMode": "web",
-  "configVersion": 1,
-  "announcement": "欢迎使用百度解析助手！"
+Future<void> showAnnouncementPopup(BuildContext context, AppConfig config) async {
+  final popup = PopupAnnouncement.fromConfig(config); // 解析后端下发的 popup
+  if (popup == null) return;                           // enabled=false 或 content 为空 → 不弹
+  await showDialog(barrierDismissible: popup.dismissible, context: context, ...);
 }
 ```
 
-- `announcement` 为空字符串时，首页公告卡片整块隐藏。
-- 修改公告后，重新请求配置接口或重启 App 即可生效。
+开源侧只暴露扩展点，定制逻辑放在 `lib/private/` 下并用 `lib/main_private.dart` 挂载，二者互不侵入。**要新增本地定制功能，遵循同样的方式**：写一个私有模块文件 → 在 `registerPrivateModules()` 里注册 → 用定制入口构建。
+
+---
+
+## 使用后端
+
+后端是一个零依赖的 PHP 接口，位于仓库 `api/app/` 目录：
+
+| 文件 | 作用 |
+| --- | --- |
+| `api/app/config.php` | 配置接口，处理 `GET` / `POST` |
+| `api/app/config.json` | 可变配置文件（默认 `popup.enabled=false`，即不带弹窗） |
+
+### 1. 部署
+
+把 `api/app/` 整个目录上传到你的站点，保证最终可访问地址形如：
+
+```
+https://<你的域名>/api/app/config.php
+```
+
+- 需要 PHP 7.4+（用到 `declare(strict_types=1)`、`hash_equals`、`FILTER_VALIDATE_BOOLEAN`），无需任何扩展或数据库。
+- `api/app/` 目录需对 PHP 进程 **可写**，否则 `POST` 保存配置会返回「配置写入失败，请检查目录权限」。
+- 若站点有 Nginx/Apache 重写规则，务必放行 `.php` 与 `.json` 直连（本仓库的 `nginx.htaccess` 可供参考）。
+
+### 2. 上线前必改：ADMIN_TOKEN
+
+打开 [config.php](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/api/app/config.php#L22) 修改共享密钥：
+
+```php
+const ADMIN_TOKEN = 'CHANGE_ME_admin_token'; // 改成一串足够随机的私密字符串
+```
+
+该 token 只用于校验写接口，**不要**下发到客户端。
+
+### 3. 读接口（GET，公开）
+
+```bash
+curl https://<你的域名>/api/app/config.php
+```
+
+返回：
+
+```json
+{
+  "code": 0,
+  "data": {
+    "apiBase": "https://file.mdx.wang",
+    "siteOrigin": "https://file.mdx.wang",
+    "referer": "https://file.mdx.wang/",
+    "fallbackBases": [],
+    "defaultMode": "web",
+    "configVersion": 1,
+    "announcement": "欢迎使用百度解析助手！如遇解析失败，请稍后重试或切换网络环境。",
+    "popup": {
+      "enabled": false,
+      "title": "公告",
+      "content": "示例：这里填写启动弹窗公告内容，enabled 改为 true 即生效。",
+      "actionType": "none",
+      "actionLabel": "",
+      "actionValue": "",
+      "dismissible": true
+    }
+  }
+}
+```
+
+接口带 `Access-Control-Allow-Origin: *` 与 `Cache-Control: no-store`，可直接用浏览器打开调试。
+
+### 4. 写接口（POST，需 Admin Token）
+
+请求体为完整配置 JSON，请求头带 `X-Admin-Token`：
+
+```bash
+curl -X POST https://<你的域名>/api/app/config.php \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Token: <你的 ADMIN_TOKEN>" \
+  -d '{
+    "apiBase": "https://file.mdx.wang",
+    "fallbackBases": ["https://backup.example.com"],
+    "defaultMode": "web",
+    "announcement": "欢迎使用百度解析助手！",
+    "popup": {
+      "enabled": true,
+      "title": "公告",
+      "content": "今晚 23:00 接口维护，请稍后再试。",
+      "actionType": "qq",
+      "actionLabel": "加入交流群",
+      "actionValue": "1125479685",
+      "dismissible": true
+    }
+  }'
+```
+
+服务端会做校验与归一化后写入 `config.json`，并返回 `{"code":0,"msg":"配置已更新","data":{...}}`。token 不匹配返回 `403`。也可以直接在服务器上编辑 `config.json`（改动即时生效，无需重启）。
+
+### 5. 字段说明
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `apiBase` | string | **必填**，转换接口基础地址，须为 `http(s)://`，尾部斜杠会被去掉 |
+| `siteOrigin` | string | 注入请求头 `Origin`；留空则由 `apiBase` 派生 |
+| `referer` | string | 注入请求头 `Referer`；留空则为 `apiBase + '/'` |
+| `fallbackBases` | string[] | 备用地址，自动去重并剔除与 `apiBase` 相同的项 |
+| `defaultMode` | string | 默认转换模式，仅 `web`（直链）/ `exe`（PC 下载器） |
+| `configVersion` | int | 版本号，留空则写入当前时间戳 |
+| `announcement` | string | 首页公告文案，空字符串时整块隐藏 |
+| `popup` | object | 启动弹窗公告，见下表 |
+
+`popup` 对象字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `enabled` | bool | 是否启用弹窗；`false` 时不弹 |
+| `title` | string | 弹窗标题，留空默认「公告」 |
+| `content` | string | 弹窗正文，**为空时不弹**（即使 `enabled=true`） |
+| `actionType` | string | 动作类型，仅 `none` / `link` / `qq` |
+| `actionLabel` | string | 主按钮文案，如「加入交流群」 |
+| `actionValue` | string | 跳转目标：`link` 填 URL，`qq` 填群号；**为空时强制 `actionType=none`** |
+| `dismissible` | bool | 是否允许点遮罩/返回关闭；`false` 时不显示关闭按钮，仅保留一个确认按钮 |
+
+> `popup` 由**定制版客户端**消费；开源版忽略该字段。因此「不带弹窗的后端」保持 `popup.enabled=false` 即可，后续要上线弹窗只需把 `enabled` 改为 `true` 并填好内容，无需重新发版。
+
+### 6. 让客户端指向你的后端
+
+后端地址即客户端启动时的 bootstrap 地址。两种方式：
+
+1. **改默认地址**：修改 [remote_config.dart](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/lib/core/remote_config.dart) 的 `kDefaultBootstrapUrls`；
+2. **构建时覆盖**（推荐）：
+
+```bash
+flutter build apk --release --target-platform android-arm64 \
+  --target lib/main_private.dart \
+  --dart-define=BOOTSTRAP_URL=https://<你的域名>/api/app/config.php
+```
+
+App 启动后会按顺序请求该地址，成功后缓存到本地，之后离线启动也能用旧配置；因此**换域名、改公告、开关弹窗都无需重新发版**。
 
 ---
 
