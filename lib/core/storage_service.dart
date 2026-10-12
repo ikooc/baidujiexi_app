@@ -87,24 +87,31 @@ class StorageService {
     return fallback;
   }
 
-  /// 设置自定义下载目录。返回是否设置成功（目录存在且可写）。
+  /// 设置自定义下载目录。返回是否设置成功（目录可写且已持久化）。
+  ///
+  /// 注意：各平台的 [SharedPreferences.setString] 在落盘失败时（如目录无写权限、
+  /// 配置文件被占用）只返回 false 而不抛异常，因此必须校验其返回值，
+  /// 否则会出现「界面提示成功、重启后却恢复默认目录」的假成功。
   Future<bool> setCustomDir(String path) async {
     final trimmed = path.trim();
     if (trimmed.isEmpty) return false;
     if (!await _isWritable(trimmed)) return false;
     await _load();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_customDirKey, trimmed);
+    final saved = await prefs.setString(_customDirKey, trimmed);
+    if (!saved) return false;
     _customDir = trimmed;
     return true;
   }
 
-  /// 清除自定义目录，恢复使用系统默认下载目录。
-  Future<void> resetDir() async {
+  /// 清除自定义目录，恢复使用系统默认下载目录。返回是否清除成功。
+  Future<bool> resetDir() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_customDirKey);
+    final removed = await prefs.remove(_customDirKey);
+    if (!removed) return false;
     _customDir = null;
     _loaded = true;
+    return true;
   }
 
   /// 当前是否已获得存储权限（Android 11+ 指「所有文件访问」）。

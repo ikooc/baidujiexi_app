@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/download_manager.dart';
@@ -351,6 +352,10 @@ class _DirSheetState extends State<_DirSheet> {
   String? _error;
   bool _busy = false;
 
+  /// 当前是否为 Android 平台（决定存储权限相关的文案与入口）。
+  bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -367,7 +372,7 @@ class _DirSheetState extends State<_DirSheet> {
     if (!ok) {
       setState(() {
         _busy = false;
-        _error = '目录不可写，请检查路径或先授予存储权限';
+        _error = '保存失败，请确认目录可写（避免系统保护目录），然后重试';
       });
       return;
     }
@@ -376,8 +381,19 @@ class _DirSheetState extends State<_DirSheet> {
   }
 
   Future<void> _reset() async {
-    setState(() => _busy = true);
-    await widget.manager.resetDownloadDir();
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final ok = await widget.manager.resetDownloadDir();
+    if (!mounted) return;
+    if (!ok) {
+      setState(() {
+        _busy = false;
+        _error = '恢复默认目录失败，请重试';
+      });
+      return;
+    }
     await widget.onChanged();
     if (mounted) Navigator.of(context).pop();
   }
@@ -407,11 +423,13 @@ class _DirSheetState extends State<_DirSheet> {
           Text('下载目录', style: theme.textTheme.titleLarge),
           const SizedBox(height: 6),
           Text(
-            '默认目录为 /storage/emulated/0/Download/，可自定义为任意可写路径。',
+            _isAndroid
+                ? '默认目录为 /storage/emulated/0/Download/，可自定义为任意可写路径。'
+                : '默认使用系统下载目录，可自定义为任意可写路径（如 D:\\）。',
             style: TextStyle(fontSize: 12, color: AppColors.textMuted),
           ),
           const SizedBox(height: 16),
-          if (!_hasPermission)
+          if (_isAndroid && !_hasPermission)
             Container(
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.all(12),
@@ -442,7 +460,7 @@ class _DirSheetState extends State<_DirSheet> {
             enabled: !_busy,
             decoration: InputDecoration(
               labelText: '目录路径',
-              hintText: '/storage/emulated/0/Download/',
+              hintText: _isAndroid ? '/storage/emulated/0/Download/' : r'D:\Downloads',
               errorText: _error,
               border: const OutlineInputBorder(),
             ),

@@ -149,11 +149,13 @@ class DownloadManager extends ChangeNotifier {
     return ok;
   }
 
-  /// 恢复为系统默认下载目录。
-  Future<void> resetDownloadDir() async {
-    await _storage.resetDir();
+  /// 恢复为系统默认下载目录。返回是否恢复成功。
+  Future<bool> resetDownloadDir() async {
+    final ok = await _storage.resetDir();
+    if (!ok) return false;
     _downloadDir = null;
     notifyListeners();
+    return true;
   }
 
   /// 申请存储权限（Android 11+ 跳系统「所有文件访问」设置页）。
