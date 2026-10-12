@@ -259,3 +259,9 @@ flutter test
 ```
 
 `test/core_test.dart` 覆盖核心逻辑：分享链接规范化、SSE 帧解析、配置解析与 `extras` 透传、下载目录解析与持久化、签名计算等。
+
+---
+
+## 开源协议
+
+本项目基于 [MIT License](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/LICENSE) 开源，可自由使用、修改与分发，请保留原始版权声明。
