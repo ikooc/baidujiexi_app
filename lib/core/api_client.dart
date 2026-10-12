@@ -1,8 +1,10 @@
 /// Upstream convert-API client.
 ///
 /// Flow:
-///  1. `GET /api/session`        → `{token, secret, ttl}`
-///  2. `POST /api/downloadConvertUrl` (SSE) → progressive `data:` frames
+///  1. `GET /api/session`        → `{token, ttl}` (`secret` optional)
+///  2. `POST /api/session/attest` → `{secret, ttl}` for sessions that omit it
+///  3. `GET /api/captcha`         → curve-follow slider challenge
+///  4. `POST /api/downloadConvertUrl` (SSE) → progressive `data:` frames
 ///
 /// Every request must carry the site `Origin`/`Referer`; sensitive POSTs also
 /// carry `x-session-token` plus `x-client-sign`, where the signature is
@@ -14,6 +16,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'captcha_solver.dart';
 import 'crypto.dart';
 import 'models.dart';
 import 'remote_config.dart';
@@ -62,13 +65,24 @@ class ConvertApiClient {
   final AppConfig config;
   final http.Client _client;
 
+  final CaptchaSolver _captchaSolver = CaptchaSolver();
+
   ApiSession? _session;
+
+  /// Signing secret for the current session. Populated either directly from a
+  /// legacy `/api/session` response or, for attested sessions, from
+  /// `/api/session/attest`.
+  String _secret = '';
 
   /// Seconds to wait before a session is considered stale, leaving headroom
   /// so a request never starts with an almost-expired token.
   static const Duration _sessionSafetyMargin = Duration(minutes: 1);
 
+  /// Upstream refuses to attest a session requested less than this long ago.
+  static const Duration _attestMinimumGap = Duration(milliseconds: 1600);
+
   DateTime? _sessionObtainedAt;
+  DateTime? _secretObtainedAt;
 
   /// Returns a usable session, fetching a fresh one if needed.
   Future<ApiSession> ensureSession({bool forceRefresh = false}) async {
@@ -85,6 +99,9 @@ class ConvertApiClient {
     final session = await _createSession();
     _session = session;
     _sessionObtainedAt = DateTime.now();
+    // Legacy responses already carry the secret; attested ones do not.
+    _secret = session.secret;
+    _secretObtainedAt = session.secret.isNotEmpty ? DateTime.now() : null;
     return session;
   }
 
@@ -104,11 +121,149 @@ class ConvertApiClient {
       }
       final session = ApiSession.fromJson(json);
       if (!session.isValid) {
-        throw ApiException('会话响应缺少 token/secret');
+        throw ApiException('会话响应缺少 token');
       }
       return session;
     });
   }
+
+  /// Returns a secret usable for `x-client-sign`, attesting one if necessary.
+  Future<String> ensureSigningSecret({bool forceRefresh = false}) async {
+    final session = _session;
+    if (!forceRefresh &&
+        _secret.isNotEmpty &&
+        _secretObtainedAt != null &&
+        session != null &&
+        session.isValid &&
+        DateTime.now().difference(_secretObtainedAt!) <
+            Duration(milliseconds: session.ttl) - _sessionSafetyMargin) {
+      return _secret;
+    }
+
+    final current = await ensureSession();
+    if (current.canSign) {
+      _secret = current.secret;
+      _secretObtainedAt = DateTime.now();
+      return _secret;
+    }
+
+    final secret = await _attestSecret(current);
+    _secret = secret;
+    _secretObtainedAt = DateTime.now();
+    return secret;
+  }
+
+  /// Exchanges [session] for a signing secret via behavioural attestation.
+  Future<String> _attestSecret(ApiSession session) async {
+    final obtainedAt = _sessionObtainedAt;
+    if (obtainedAt != null) {
+      final elapsed = DateTime.now().difference(obtainedAt);
+      if (elapsed < _attestMinimumGap) {
+        await Future<void>.delayed(_attestMinimumGap - elapsed);
+      }
+    }
+
+    final fingerprint = _buildFingerprint();
+
+    return _withFallback<String>((base) async {
+      for (var attempt = 0; attempt < 3; attempt++) {
+        final response = await _client
+            .post(
+              Uri.parse('$base/api/session/attest'),
+              headers: <String, String>{
+                ..._baseHeaders(),
+                'Content-Type': 'application/json',
+                'x-session-token': session.token,
+              },
+              body: jsonEncode(<String, dynamic>{'fp': fingerprint}),
+            )
+            .timeout(const Duration(seconds: 12));
+
+        final json = _decodeJson(response);
+        final secret = (json['secret'] ?? '').toString();
+        if (response.statusCode == 200 && secret.isNotEmpty) return secret;
+
+        if ((json['reason'] ?? '').toString() == 'too-fast') {
+          await Future<void>.delayed(const Duration(milliseconds: 700));
+          continue;
+        }
+        throw ApiException(
+          _messageFrom(json) ?? '人机校验未通过，请稍后重试',
+          statusCode: response.statusCode,
+        );
+      }
+      throw ApiException('人机校验未通过，请稍后重试');
+    });
+  }
+
+  /// A plausible behavioural fingerprint; the upstream only uses it to reject
+  /// obviously automated callers, so a realistic constant profile suffices.
+  Map<String, dynamic> _buildFingerprint() => <String, dynamic>{
+        'v': 1,
+        'dwellMs': 4200,
+        'ptr': 140,
+        'ptrSpan': 980,
+        'pathLen': 1450,
+        'speedVar': 0.412,
+        'dirChanges': 5,
+        'key': 0,
+        'keyCv': 0,
+        'paste': 0,
+        'focus': 1,
+        'scroll': 0,
+        'vis': 0,
+        'typedKeys': 0,
+        'sinceLastInput': -1,
+      };
+
+  /// Fetches a fresh slider challenge. Each challenge is single-use, so this
+  /// is never cached across requests.
+  Future<CaptchaChallenge> _fetchCaptcha() async {
+    return _withFallback<CaptchaChallenge>((base) async {
+      final response = await _client
+          .get(Uri.parse('$base/api/captcha'), headers: _baseHeaders())
+          .timeout(const Duration(seconds: 12));
+
+      final json = _decodeJson(response);
+      final error = (json['error'] as num?)?.toInt() ?? 0;
+      if (response.statusCode != 200 || error != 0) {
+        throw ApiException(
+          _messageFrom(json) ?? '验证码加载失败',
+          statusCode: response.statusCode,
+        );
+      }
+      final challenge = CaptchaChallenge.fromJson(json);
+      if (!challenge.isValid) throw ApiException('验证码数据不完整');
+      return challenge;
+    });
+  }
+
+  /// Solves a fresh single-use slider challenge, or `null` when the curve is
+  /// unparseable (the request then simply omits the captcha fields and the
+  /// upstream rejection is retried with a new challenge).
+  Future<CaptchaAnswer?> _solveCaptcha() async {
+    final challenge = await _fetchCaptcha();
+    return _captchaSolver.solve(challenge);
+  }
+
+  /// Discards all cached credentials so the next request starts clean.
+  void _resetSession() {
+    _session = null;
+    _sessionObtainedAt = null;
+    _secret = '';
+    _secretObtainedAt = null;
+  }
+
+  /// Whether [error] means the captcha was missing, expired or wrong.
+  bool _isCaptchaFailure(ApiException error) =>
+      error.message.contains('验证码');
+
+  /// Whether [error] means the session token or request signature was stale.
+  bool _isAuthFailure(ApiException error) =>
+      error.statusCode == 401 ||
+      error.statusCode == 403 ||
+      error.message.contains('会话') ||
+      error.message.contains('签名');
 
   /// Starts a convert task and emits [ConvertEvent] frames as they arrive.
   ///
@@ -120,27 +275,57 @@ class ConvertApiClient {
       throw ApiException('请输入分享链接');
     }
 
-    final session = await ensureSession();
     final resolvedMode = mode ?? config.defaultMode;
-    final sign = clientSign(session.secret, normalizedLink);
-    final body = jsonEncode(<String, dynamic>{
-      'link': normalizedLink,
-      'mode': resolvedMode,
-      'ref': config.referer,
-    });
 
+    // Two upstream checks can intermittently reject an otherwise valid
+    // request: the single-use slider captcha and a stale session/signature.
+    // Both are recoverable by refreshing the relevant credential and retrying.
+    const maxAttempts = 3;
     Object? lastError;
-    for (final base in config.allBases) {
-      try {
-        yield* _convertOn(base, session, sign, body);
-        return;
-      } on ApiException {
-        rethrow;
-      } catch (error) {
-        lastError = error;
+
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      final session = await ensureSession();
+      final secret = await ensureSigningSecret();
+      final answer = await _solveCaptcha();
+
+      final body = jsonEncode(<String, dynamic>{
+        'link': normalizedLink,
+        'mode': resolvedMode,
+        ...?answer?.toJson(),
+        'ref': config.referer,
+      });
+      // The signature covers only the share link, not the JSON body.
+      final sign = clientSign(secret, normalizedLink);
+
+      var shouldRetry = false;
+      for (final base in config.allBases) {
+        try {
+          yield* _convertOn(base, session, sign, body);
+          return;
+        } on ApiException catch (error) {
+          if (_isCaptchaFailure(error)) {
+            // A fresh challenge is fetched on the next attempt.
+            lastError = error;
+            shouldRetry = true;
+            break;
+          }
+          if (_isAuthFailure(error)) {
+            _resetSession();
+            lastError = error;
+            shouldRetry = true;
+            break;
+          }
+          rethrow;
+        } catch (error) {
+          lastError = error;
+        }
       }
+      if (!shouldRetry) break;
     }
-    throw ApiException('转换请求失败：${lastError ?? '未知错误'}');
+
+    final error = lastError;
+    if (error is ApiException) throw error;
+    throw ApiException('转换请求失败：${error ?? '未知错误'}');
   }
 
   Stream<ConvertEvent> _convertOn(
@@ -165,7 +350,7 @@ class ConvertApiClient {
     if (response.statusCode == 401 || response.statusCode == 403) {
       // Session may have expired or origin rejected us; force a refresh on
       // the next call.
-      _session = null;
+      _resetSession();
       final text = await response.stream.bytesToString();
       throw ApiException(
         _messageFromRaw(text) ?? '请求被拒绝（${response.statusCode}）',
@@ -185,7 +370,14 @@ class ConvertApiClient {
       );
     }
 
-    yield* _parseSse(response.stream);
+    // Surface error frames as exceptions so `convert` can retry recoverable
+    // ones (captcha, stale session) instead of only reporting them.
+    await for (final event in _parseSse(response.stream)) {
+      if (event.isError) {
+        throw ApiException(event.message ?? '转换失败');
+      }
+      yield event;
+    }
   }
 
   /// Decodes a `text/event-stream` body into [ConvertEvent] frames.
@@ -250,9 +442,6 @@ class ConvertApiClient {
 
     await for (final event in convert(link, mode: mode)) {
       onEvent?.call(event);
-      if (event.isError) {
-        throw ApiException(event.message ?? '转换失败');
-      }
 
       _collect(event.data['downloadLinks'], result.links);
       _collect(event.data['exeUrl'], result.exeUrls);

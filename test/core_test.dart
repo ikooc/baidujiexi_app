@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:baidujiexi_app/core/api_client.dart';
+import 'package:baidujiexi_app/core/captcha_solver.dart';
 import 'package:baidujiexi_app/core/crypto.dart';
 import 'package:baidujiexi_app/core/download_manager.dart';
 import 'package:baidujiexi_app/core/models.dart';
@@ -250,6 +251,75 @@ void main() {
 
     test('returns the input unchanged when no share link is present', () {
       expect(normalizeShareLink('not a link'), 'not a link');
+    });
+  });
+
+  group('CaptchaSolver', () {
+    // A single-cubic dashed guide curve, as returned by `/api/captcha`.
+    const challenge = CaptchaChallenge(
+      captchaId: 'abc123',
+      curve: 'M 0 40 C 60 10, 120 80, 180 40 C 220 20, 260 60, 300 40',
+      curveStartY: 40,
+    );
+
+    test('always answers with the maximum travel plus half a knob', () {
+      final answer = CaptchaSolver().solve(challenge);
+      expect(answer, isNotNull);
+      expect(answer!.captchaId, 'abc123');
+      expect(answer.answer, 260 + 23);
+    });
+
+    test('trail starts at the left edge and ends at the right edge', () {
+      final trail = CaptchaSolver().solve(challenge)!.trail;
+      expect(trail.length, greaterThan(2));
+      expect(trail.first['x'], 23);
+      expect(trail.last['x'], 283);
+      // Timestamps must be strictly increasing (a real drag is monotonic).
+      for (var i = 1; i < trail.length; i++) {
+        expect(trail[i]['t']!, greaterThan(trail[i - 1]['t']!));
+      }
+    });
+
+    test('trail y follows the guide curve', () {
+      final trail = CaptchaSolver().solve(challenge)!.trail;
+      final ys = trail.map((p) => p['y']!).toList();
+      // The curve is nonlinear, so the sampled y must vary instead of being a
+      // flat line, and it must stay within the curve's own 10..80 y-range.
+      expect(ys.toSet().length, greaterThan(1));
+      expect(ys.every((y) => y >= 10 && y <= 80), isTrue);
+    });
+
+    test('returns null for an unparseable curve', () {
+      const broken = CaptchaChallenge(captchaId: 'x', curve: 'nope', curveStartY: 0);
+      expect(CaptchaSolver().solve(broken), isNull);
+    });
+  });
+
+  group('ApiSession', () {
+    test('accepts a legacy response that already carries a secret', () {
+      final session = ApiSession.fromJson(<String, dynamic>{
+        'token': 't',
+        'secret': 's',
+        'ttl': 1000,
+      });
+      expect(session.isValid, isTrue);
+      expect(session.attestRequired, isFalse);
+      expect(session.canSign, isTrue);
+    });
+
+    test('accepts a token-only attested response', () {
+      final session = ApiSession.fromJson(<String, dynamic>{
+        'token': 't',
+        'ttl': 1000,
+        'attest': 1,
+      });
+      expect(session.isValid, isTrue);
+      expect(session.attestRequired, isTrue);
+      expect(session.canSign, isFalse);
+    });
+
+    test('is invalid without a token', () {
+      expect(ApiSession.fromJson(<String, dynamic>{'ttl': 1000}).isValid, isFalse);
     });
   });
 

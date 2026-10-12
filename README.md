@@ -34,7 +34,8 @@ baidujiexi_app/
 │   ├── main.dart                  应用入口与根 Widget（启动引导、主题切换）
 │   ├── core/
 │   │   ├── remote_config.dart     远端配置拉取 / 解析 / 缓存（AppConfig）
-│   │   ├── api_client.dart        转换接口客户端（session + SSE 流式解析）
+│   │   ├── api_client.dart        转换接口客户端（session / attest / captcha + SSE 流式解析）
+│   │   ├── captcha_solver.dart    曲线滑块验证码自动求解（拟合轨迹，无图像识别）
 │   │   ├── crypto.dart            会话签名（clientSign）等加密封装
 │   │   ├── models.dart            数据模型（ApiSession / ConvertEvent / ConvertResult…）
 │   │   ├── gopeed_engine.dart     Gopeed 引擎桥接（MethodChannel / 子进程 + REST）
@@ -128,16 +129,25 @@ App 启动时按顺序请求 bootstrap 地址，直到拿到一份合法配置�
 
 ### 2. 转换接口（`api_client.dart`）
 
-流程分两步：
+上游已升级为「会话 → 行为认证 → 滑块验证码 → 转换」四步协议，客户端按同一顺序取齐凭据后再发起转换：
 
-1. `GET /api/session` → `{ token, secret, ttl }`
+1. `GET /api/session` → `{ token, ttl, attest }`
    - 必须用 **GET**；
-   - `secret` 仅用于本地签名，不上行；
+   - 新版响应不再直接下发 `secret`，而是带 `attest: 1`，需要再做第 2 步换取；
    - 会话按 `ttl` 缓存并预留 1 分钟安全边界。
-2. `POST /api/downloadConvertUrl`（SSE，`Accept: text/event-stream`）
+2. `POST /api/session/attest` → `{ secret, ttl }`
+   - 请求头带 `x-session-token`，body 为 `{ "fp": <行为指纹> }`；
+   - 与第 1 步的间隔需 ≥ 1600ms，过快会被判 `too-fast`，客户端退避后重试；
+   - `secret` 仅用于本地签名，不上行。
+3. `GET /api/captcha` → 曲线跟随滑块挑战
+   - 挑战单次有效，每次转换都重新获取；答案恒为把滑块拖到最右端（`captchaAnswer = 283`），
+     轨迹按引导曲线拟合，无需图像识别（见 `lib/core/captcha_solver.dart`）。
+4. `POST /api/downloadConvertUrl`（SSE，`Accept: text/event-stream`）
    - 请求头：`Origin` / `Referer` / `User-Agent`，以及 `x-session-token`、`x-client-sign`；
-   - body：`{ "link": <规范化链接>, "mode": "web|exe", "ref": <referer> }`；
+   - body：`{ "link": <规范化链接>, "mode": "web|exe", "captchaId", "captchaAnswer", "captchaTrail", "ref": <referer> }`；
    - `x-client-sign = clientSign(secret, link)`，**只对规范化后的链接字符串加签**（不是整个 JSON body）。
+
+验证码被拒或会话 / 签名失效时，`convert()` 会刷新对应凭据并自动重试（最多 3 次）。
 
 分享链接会被 `normalizeShareLink()` 规范化为 `https://pan.baidu.com/s/1<surl>?pwd=<提取码>`。提取码可来自链接中的 `?pwd=`，也可来自粘贴文本里的 `提取码：xxxx`；签名必须覆盖这个规范化后的完整字符串。
 
