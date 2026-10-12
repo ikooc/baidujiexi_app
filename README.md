@@ -67,7 +67,7 @@ baidujiexi_app/
 ```bash
 flutter pub get
 
-# 运行（连接设备 / 桌面；默认入口 lib/main.dart）
+# 运行（连接设备 / 桌面）
 flutter run
 
 # 校验
@@ -78,8 +78,6 @@ flutter test      # 单元测试全绿
 > App 启动时若拿不到后端配置，会退回本地缓存；首次启动需能访问 bootstrap 地址，否则停留在加载页。
 
 ### 2. 构建
-
-使用默认入口 `lib/main.dart` 构建：
 
 ```bash
 # Android
