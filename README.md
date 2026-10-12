@@ -264,4 +264,6 @@ flutter test
 
 ## 开源协议
 
-本项目基于 [MIT License](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/LICENSE) 开源，可自由使用、修改与分发，请保留原始版权声明。
+本项目基于 [GNU General Public License v3.0](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/LICENSE)（GPL-3.0）开源。
+
+你可以自由使用、修改和分发本项目，但衍生作品必须以相同协议（GPL-3.0）开源，并保留原始版权声明。完整条款见 [LICENSE](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/LICENSE)。
