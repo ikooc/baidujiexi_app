@@ -262,6 +262,12 @@ flutter test
 
 ---
 
+## 反馈与交流
+
+使用中遇到问题、有功能建议，或想第一时间获取新版本，欢迎加入 QQ 群：**1125479685**
+
+---
+
 ## 开源协议
 
 本项目基于 [GNU General Public License v3.0](file:///d:/phpstudy_pro/WWW/hhh.com/baidujiexi_app/LICENSE)（GPL-3.0）开源。
