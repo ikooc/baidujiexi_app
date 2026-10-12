@@ -72,18 +72,17 @@ class AppConfig {
   /// Operator-pushed announcement shown on the home screen. Empty = hidden.
   final String announcement;
 
-  /// Raw config keys not consumed by the open-source layer.
+  /// Raw config keys not consumed by the core config model.
   ///
-  /// The backend may ship extra fields (e.g. a popup announcement) that only
-  /// optional/private modules understand. They are preserved verbatim here so
-  /// those modules can read their own values without the open-source code
-  /// knowing anything about them.
+  /// The backend may ship extra fields that the app does not model explicitly.
+  /// They are preserved verbatim here so callers can read them by key without
+  /// the config model knowing anything about them.
   final Map<String, dynamic> extras;
 
   /// Every host that may serve the API, primary first.
   List<String> get allBases => <String>[apiBase, ...fallbackBases];
 
-  /// Reads an unknown, module-private config value by key.
+  /// Reads an unmodeled config value by key.
   T? extra<T>(String key) {
     final value = extras[key];
     return value is T ? value : null;
@@ -125,7 +124,7 @@ class AppConfig {
     );
   }
 
-  /// Keys understood by the open-source layer; everything else lands in
+  /// Keys modeled explicitly by [AppConfig]; everything else lands in
   /// [extras] untouched.
   static const Set<String> _knownKeys = <String>{
     'apiBase',

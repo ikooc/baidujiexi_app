@@ -19,7 +19,7 @@ class StorageService {
   static final StorageService instance = StorageService._();
 
   static const MethodChannel _channel =
-      MethodChannel('com.netdiskx.netdiskx_app/storage');
+      MethodChannel('com.baidujiexi.baidujiexi_app/storage');
   static const String _customDirKey = 'download_dir_custom';
 
   String? _customDir;
@@ -69,7 +69,7 @@ class StorageService {
       }
     }
     final docs = await getApplicationDocumentsDirectory();
-    return p.join(docs.path, 'NetdiskxDownloads');
+    return p.join(docs.path, 'BaidujiexiDownloads');
   }
 
   /// 解析当前生效的下载目录，并确保其存在且可写。
@@ -144,7 +144,7 @@ class StorageService {
     try {
       final dir = Directory(path);
       if (!await dir.exists()) await dir.create(recursive: true);
-      final probe = File(p.join(path, '.netdiskx_write_probe'));
+      final probe = File(p.join(path, '.baidujiexi_write_probe'));
       await probe.writeAsString('ok');
       await probe.delete();
       return true;

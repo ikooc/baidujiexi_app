@@ -5,12 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:netdiskx_app/core/api_client.dart';
-import 'package:netdiskx_app/core/crypto.dart';
-import 'package:netdiskx_app/core/download_manager.dart';
-import 'package:netdiskx_app/core/models.dart';
-import 'package:netdiskx_app/core/remote_config.dart';
-import 'package:netdiskx_app/core/storage_service.dart';
+import 'package:baidujiexi_app/core/api_client.dart';
+import 'package:baidujiexi_app/core/crypto.dart';
+import 'package:baidujiexi_app/core/download_manager.dart';
+import 'package:baidujiexi_app/core/models.dart';
+import 'package:baidujiexi_app/core/remote_config.dart';
+import 'package:baidujiexi_app/core/storage_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -79,12 +79,12 @@ void main() {
       expect(config.announcement, '');
     });
 
-    test('keeps unknown backend keys in extras for private modules', () {
+    test('keeps unknown backend keys in extras', () {
       final config = AppConfig.fromJson(<String, dynamic>{
         'apiBase': 'https://file.mdx.wang',
         'popup': <String, dynamic>{'enabled': true, 'content': 'hello'},
       });
-      // 开源层不认识 popup，但必须原样保留，供私有模块读取。
+      // 未建模的字段必须原样保留，供调用方按 key 读取。
       final popup = config.extra<Map<String, dynamic>>('popup');
       expect(popup, isNotNull);
       expect(popup!['enabled'], isTrue);
@@ -246,7 +246,7 @@ void main() {
     });
 
     test('persists a writable custom dir and resolves it back', () async {
-      final temp = await Directory.systemTemp.createTemp('netdiskx-dir');
+      final temp = await Directory.systemTemp.createTemp('baidujiexi-dir');
       final target = p.join(temp.path, 'custom-downloads');
       final ok = await StorageService.instance.setCustomDir(target);
       expect(ok, isTrue);
@@ -260,7 +260,7 @@ void main() {
     });
 
     test('resetDir clears the custom dir and falls back to default', () async {
-      final temp = await Directory.systemTemp.createTemp('netdiskx-dir2');
+      final temp = await Directory.systemTemp.createTemp('baidujiexi-dir2');
       await StorageService.instance.setCustomDir(temp.path);
       expect(StorageService.instance.customDir, isNotNull);
       await StorageService.instance.resetDir();

@@ -5,27 +5,26 @@ import 'core/startup_hooks.dart';
 import 'theme/app_theme.dart';
 import 'ui/home_page.dart';
 
-/// 开源入口：启动纯开源 App（无任何私有模块）。
+/// 应用入口：构建并运行 App 外壳。
 void main() {
-  runNetdiskxApp();
+  runBaidujiexiApp();
 }
 
 /// 构建并运行 App 外壳。
 ///
-/// 私有入口 `lib/main_private.dart` 会先注册私有模块，再复用本函数，
-/// 从而让本文件保持零私有依赖。
-void runNetdiskxApp() {
-  runApp(const NetdiskxApp());
+/// 若需在启动前注册扩展逻辑，可先调用 `StartupHooks.register`，再复用本函数。
+void runBaidujiexiApp() {
+  runApp(const BaidujiexiApp());
 }
 
-class NetdiskxApp extends StatefulWidget {
-  const NetdiskxApp({super.key});
+class BaidujiexiApp extends StatefulWidget {
+  const BaidujiexiApp({super.key});
 
   @override
-  State<NetdiskxApp> createState() => _NetdiskxAppState();
+  State<BaidujiexiApp> createState() => _BaidujiexiAppState();
 }
 
-class _NetdiskxAppState extends State<NetdiskxApp> {
+class _BaidujiexiAppState extends State<BaidujiexiApp> {
   ThemeMode _themeMode = ThemeMode.system;
 
   void _toggleTheme() {
@@ -87,8 +86,7 @@ class _BootstrapState extends State<_Bootstrap> {
   }
 
   /// Fires the optional startup hooks after the first main-screen frame so a
-  /// hook can present dialogs with a mounted context. Hooks are empty in the
-  /// open-source build; private modules register their own.
+  /// hook can present dialogs with a mounted context.
   void _runStartupHooks(AppConfig config) {
     if (_hooksRan) return;
     _hooksRan = true;

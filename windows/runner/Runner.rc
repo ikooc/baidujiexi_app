@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.netdiskx" "\0"
-            VALUE "FileDescription", "netdiskx_app" "\0"
+            VALUE "CompanyName", "com.baidujiexi" "\0"
+            VALUE "FileDescription", "baidujiexi_app" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "netdiskx_app" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.netdiskx. All rights reserved." "\0"
-            VALUE "OriginalFilename", "netdiskx_app.exe" "\0"
-            VALUE "ProductName", "netdiskx_app" "\0"
+            VALUE "InternalName", "baidujiexi_app" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.baidujiexi. All rights reserved." "\0"
+            VALUE "OriginalFilename", "baidujiexi_app.exe" "\0"
+            VALUE "ProductName", "baidujiexi_app" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

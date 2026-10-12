@@ -1,12 +1,9 @@
 /// Startup extension point.
 ///
-/// The main app is open source and ships with **no** startup hooks
-/// registered, so building `lib/main.dart` produces a plain app.
-///
-/// Optional modules living outside the open-source tree may register a hook
-/// before `runApp`. Hooks run once, after the remote config has been resolved
-/// and the first frame of the main screen is painted, so a hook can safely
-/// show dialogs (it has a mounted [BuildContext] under `MaterialApp`).
+/// Register a hook with [StartupHooks.register] before `runApp` to run custom
+/// logic once the app has booted. Hooks run after the remote config has been
+/// resolved and the first frame of the main screen is painted, so a hook can
+/// safely show dialogs (it has a mounted [BuildContext] under `MaterialApp`).
 ///
 /// A hook that throws is isolated: it is logged and ignored, never breaking
 /// the app boot.
@@ -19,7 +16,7 @@ import 'remote_config.dart';
 /// Signature of a startup hook.
 ///
 /// [context] is a context mounted under `MaterialApp`; [config] is the
-/// resolved remote config (use [AppConfig.extras] for module-private fields).
+/// resolved remote config (use [AppConfig.extras] for custom fields).
 typedef StartupHook = Future<void> Function(BuildContext context, AppConfig config);
 
 /// Registry of startup hooks. Empty by default.

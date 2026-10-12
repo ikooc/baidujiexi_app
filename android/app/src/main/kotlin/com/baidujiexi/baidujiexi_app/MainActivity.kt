@@ -1,4 +1,4 @@
-package com.netdiskx.netdiskx_app
+package com.baidujiexi.baidujiexi_app
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
