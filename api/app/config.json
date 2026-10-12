@@ -1,0 +1,18 @@
+{
+    "apiBase": "https://file.mdx.wang",
+    "siteOrigin": "https://file.mdx.wang",
+    "referer": "https://file.mdx.wang/",
+    "fallbackBases": [],
+    "defaultMode": "web",
+    "configVersion": 1,
+    "announcement": "欢迎使用百度解析助手！如遇解析失败，请稍后重试或切换网络环境。",
+    "popup": {
+        "enabled": false,
+        "title": "公告",
+        "content": "示例：这里填写启动弹窗公告内容，enabled 改为 true 即生效。",
+        "actionType": "none",
+        "actionLabel": "",
+        "actionValue": "",
+        "dismissible": true
+    }
+}
