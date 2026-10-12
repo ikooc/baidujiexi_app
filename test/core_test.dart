@@ -182,6 +182,38 @@ void main() {
     });
   });
 
+  group('DownloadManager.fileNameFromUrl', () {
+    test('prefers the outname query parameter of a Baidu direct link', () {
+      expect(
+        DownloadManager.fileNameFromUrl(
+          'https://d.pcs.baidu.com/file/abc123?fid=1&outname=MI8_V12.zip&time=1',
+        ),
+        'MI8_V12.zip',
+      );
+    });
+
+    test('url-decodes the outname value', () {
+      expect(
+        DownloadManager.fileNameFromUrl(
+          'https://d.pcs.baidu.com/file/abc?outname=%E6%B5%8B%E8%AF%95.rar',
+        ),
+        '测试.rar',
+      );
+    });
+
+    test('falls back to the last path segment when outname is absent', () {
+      expect(
+        DownloadManager.fileNameFromUrl('https://example.com/files/demo.zip'),
+        'demo.zip',
+      );
+    });
+
+    test('returns null when no name can be derived', () {
+      expect(DownloadManager.fileNameFromUrl(''), isNull);
+      expect(DownloadManager.fileNameFromUrl('https://example.com/'), isNull);
+    });
+  });
+
   group('normalizeShareLink', () {
     test('canonicalizes a bare share link', () {
       expect(

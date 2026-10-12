@@ -274,18 +274,22 @@ class _HomePageState extends State<HomePage> {
               _buildSectionTitle(theme, '下载结果', Icons.link_rounded),
               const SizedBox(height: 12),
               ..._result!.links.asMap().entries.map(
-                    (e) => _buildResultCard(
-                      theme,
-                      index: e.key + 1,
-                      title: '直链地址',
-                      value: e.value,
-                      icon: Icons.link_rounded,
-                      primaryIcon: Icons.rocket_launch_rounded,
-                      primaryLabel: '引擎下载',
-                      onPrimary: () => _downloadWithEngine(e.value),
-                      secondaryLabel: '复制',
-                      onSecondary: () => _copy(e.value),
-                    ),
+                    (e) {
+                      // 解析文件夹时，卡片标题直接使用待下载文件的真实名称。
+                      final fileName = DownloadManager.fileNameFromUrl(e.value);
+                      return _buildResultCard(
+                        theme,
+                        index: e.key + 1,
+                        title: fileName ?? '直链地址',
+                        value: e.value,
+                        icon: Icons.link_rounded,
+                        primaryIcon: Icons.rocket_launch_rounded,
+                        primaryLabel: '引擎下载',
+                        onPrimary: () => _downloadWithEngine(e.value),
+                        secondaryLabel: '复制',
+                        onSecondary: () => _copy(e.value),
+                      );
+                    },
                   ),
               ..._result!.exeUrls.map(
                     (url) => _buildResultCard(
@@ -540,6 +544,8 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: Text(
                   index != null ? '$title  #$index' : title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleMedium,
                 ),
               ),

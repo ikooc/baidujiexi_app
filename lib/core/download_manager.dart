@@ -249,13 +249,16 @@ class DownloadManager extends ChangeNotifier {
     }
   }
 
-  /// 由链接推导文件名；无有效路径段时用时间戳兜底。
-  String _fileNameFrom(String url, String? name) {
-    if (name != null && name.trim().isNotEmpty) return name.trim();
-    // 百度直链把真实文件名放在 `outname=` 查询参数里，路径段只是文件 id。
+  /// 从直链推导真实文件名，无法识别时返回 null。
+  ///
+  /// 百度直链把真实文件名放在 `outname=` 查询参数里，路径段只是文件 id。
+  /// 解析结果展示与下载任务命名都复用这里，保证「界面看到的名称」与
+  /// 「实际落盘的文件名」一致。
+  static String? fileNameFromUrl(String url) {
     final outname = RegExp(r'[?&]outname=([^&]+)').firstMatch(url);
     if (outname != null) {
-      final decoded = Uri.decodeComponent(outname.group(1)!.replaceAll('+', ' '));
+      final decoded =
+          Uri.decodeComponent(outname.group(1)!.replaceAll('+', ' '));
       if (decoded.trim().isNotEmpty) return decoded.trim();
     }
     try {
@@ -265,9 +268,16 @@ class DownloadManager extends ChangeNotifier {
         if (last.trim().isNotEmpty) return last.trim();
       }
     } catch (_) {
-      // 忽略解析失败，走兜底。
+      // 忽略解析失败，返回 null 交给调用方兜底。
     }
-    return 'download_${DateTime.now().millisecondsSinceEpoch}';
+    return null;
+  }
+
+  /// 由链接推导文件名；无有效名称时用时间戳兜底。
+  String _fileNameFrom(String url, String? name) {
+    if (name != null && name.trim().isNotEmpty) return name.trim();
+    return fileNameFromUrl(url) ??
+        'download_${DateTime.now().millisecondsSinceEpoch}';
   }
 
   void _startPolling() {
